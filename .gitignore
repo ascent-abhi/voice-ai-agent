@@ -1,7 +1,7 @@
 # Virtual environment
 .venv/
 
-# Environment variables (secrets)
+# Environment variables
 .env
 
 # Python cache
