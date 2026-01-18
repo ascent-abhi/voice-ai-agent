@@ -24,3 +24,10 @@ def get_time():
 
 def get_weather():
     return "It's sunny today."
+
+
+def conversation_to_text(memory):
+    text = ""
+    for msg in memory:
+        text += f"{msg['role']}: {msg['content']}\n"
+    return text

@@ -1,50 +1,70 @@
 import os
-import re
+
 from dotenv import load_dotenv
 from openai import OpenAI
 
 
 from voice_input import listen
 from voice_output import speak
-from tools import book_meeting, get_time, get_weather
-
+from sales_logic import score_lead
+from tools import conversation_to_text
+from llm_judge import judge_lead
 
 load_dotenv()
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Memory
+# System prompt (agent brain)
 memory = [
-    {"role": "system", "content": "You are a smart and friendly voice assistant."}
+    {
+        "role": "system",
+        "content": """
+You are an AI sales calling agent.
+
+Your goal:
+Qualify leads for a product demo.
+
+Conversation flow:
+1. Introduce yourself
+2. Ask if user is decision maker
+3. Ask what software they currently use
+4. Ask company size
+5. Decide QUALIFIED or NOT QUALIFIED
+6. If qualified → offer demo booking
+
+Rules:
+- Ask only ONE question at a time
+- Be polite and friendly
+- Keep responses short
+""",
+    }
 ]
 
-print("🤖 Voice AI Agent started. Say 'exit' to stop.")
+lead_data = {"decision_maker": "", "current_tool": "", "company_size": ""}
+
+current_step = "INTRO"
+
+print("📞 Sales AI Agent started...")
 
 
-def extract_datetime(text):
-    date = "tomorrow" if "tomorrow" in text.lower() else "today"
-
-    time_match = re.search(r"(\d{1,2})\s*(am|pm)?", text.lower())
-    time = time_match.group(0) if time_match else "unspecified time"
-
-    return date, time
-
-
-# Intent detection
-def detect_intent(text):
-    text = text.lower()
-
-    if "book" in text:
-        return "BOOKING"
-    elif "weather" in text:
-        return "WEATHER"
-    elif "time" in text:
-        return "TIME"
-    else:
-        return "CHAT"
+def get_ai_reply():
+    response = client.chat.completions.create(model="gpt-4o-mini", messages=memory)
+    return response.choices[0].message.content
 
 
 while True:
+
+    if current_step == "INTRO":
+        intro = (
+            "Hi, this is Alex from XYZ Solutions. "
+            "You recently downloaded our guide on improving sales productivity. "
+            "I’m calling to understand your current process and see if we can help."
+        )
+
+        speak(intro)
+        memory.append({"role": "assistant", "content": intro})
+        current_step = "DECISION"
+        continue
 
     user_input = listen()
 
@@ -52,38 +72,48 @@ while True:
         continue
 
     if user_input.lower() == "exit":
-        speak("Goodbye Abhishek. Have a great day!")
+        speak("Thank you. Have a great day!")
         break
 
     memory.append({"role": "user", "content": user_input})
 
-    intent = detect_intent(user_input)
-    print("Intent:", intent)
-
-    # Tool execution
-    if intent == "BOOKING":
-        result = book_meeting()
-        print("Agent:", result)
-        speak(result)
+    # Step handling
+    if current_step == "DECISION":
+        ai = "Are you the decision maker for software purchases?"
+        speak(ai)
+        memory.append({"role": "assistant", "content": ai})
+        current_step = "WAIT-DECISION"
         continue
 
-    if intent == "TIME":
-        result = get_time()
-        print("Agent:", result)
-        speak(result)
+    if current_step == "WAIT-DECISION":
+        lead_data["decision_maker"] = user_input
+        ai = "What software do you currently use?"
+        speak(ai)
+        memory.append({"role": "assistant", "content": ai})
+        current_step = "WAIT-TOOL"
         continue
 
-    if intent == "WEATHER":
-        result = get_weather()
-        print("Agent:", result)
-        speak(result)
+    if current_step == "WAIT-TOOL":
+        lead_data["current_tool"] = user_input
+        ai = "What is your company size?"
+        speak(ai)
+        memory.append({"role": "assistant", "content": ai})
+        current_step = "WAIT-SIZE"
         continue
 
-    # LLM response
-    response = client.chat.completions.create(model="gpt-4o-mini", messages=memory)
+    if current_step == "WAIT-SIZE":
+        lead_data["company_size"] = user_input
 
-    reply = response.choices[0].message.content
-    print("Agent:", reply)
-    speak(reply)
+    conversation = conversation_to_text(memory)
+    decision = judge_lead(conversation, client)
 
-    memory.append({"role": "assistant", "content": reply})
+    print("LLM decision:", decision)
+
+    if decision == "QUALIFIED":
+        ai = "Great! You seem like a good fit. Would you like to book a free demo?"
+    else:
+        ai = "Thanks for your time. At the moment we may not be the right fit."
+
+    speak(ai)
+    memory.append({"role": "assistant", "content": ai})
+    break
