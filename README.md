@@ -227,23 +227,3 @@ It is intentionally **not** a chatbot demo.
 Backend Engineer | Applied AI Systems
 LinkedIn: [https://www.linkedin.com/in/abhishek-padaya/](https://www.linkedin.com/in/abhishek-padaya/)
 GitHub: [https://github.com/ascent-abhi](https://github.com/ascent-abhi)
-
----
-
-## Mentor Note (Not in README)
-
-This README is:
-
-* ATS-friendly
-* Recruiter-readable
-* Interview-defensible
-* Honest (no hype)
-
-If you want next, we can:
-
-* Add **architecture diagram**
-* Add **sample conversation transcript**
-* Add **demo mode instructions**
-* Rewrite this README for **GitHub stars vs recruiters**
-
-Just tell me the next move.
